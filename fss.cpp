@@ -4,10 +4,9 @@
  * License: DWTFYWWI
 */
 
-#include "hphp/runtime/base/base-includes.h"
+#include "hphp/runtime/ext/extension.h"
 #include "hphp/runtime/base/string-buffer.h"
 #include "hphp/runtime/base/array-init.h"
-#define NEWOBJ(T) new (HPHP::MM().smartMallocSizeLogged(sizeof(T))) T
 
 #include "kwset.h"
 
@@ -39,10 +38,10 @@ public:
 			if (!m_fss_r->replace[i]) {
 				continue;
 			}
-			smart_delete(m_fss_r->replace[i]);
+			req::destroy_raw(m_fss_r->replace[i]);
 			m_fss_r->replace[i] = NULL;
 		}
-		smart_free(m_fss_r);
+		req::free(m_fss_r);
 		m_fss_r = NULL;
 	}
 	fss_resource_t* getStruct() {
@@ -60,7 +59,7 @@ static Variant HHVM_FUNCTION(fss_prep_search, const Variant& needle) {
 	fss_resource_t * res;
 	const char *error;
 
-	res = (fss_resource_t*)smart_malloc(sizeof(fss_resource_t));
+	res = (fss_resource_t*)req::malloc(sizeof(fss_resource_t));
 	if (!res) {
 		throw Exception("Out of memory");
 	}
@@ -76,7 +75,7 @@ static Variant HHVM_FUNCTION(fss_prep_search, const Variant& needle) {
 		Array needle_a = needle.toArray();
 		for(ArrayIter iter(needle_a); iter; ++iter) {
 			Variant key = iter.first();
-			String elem = iter.second();
+			String elem = iter.second().toString();
 			/* Don't add zero-length strings, that will cause infinite loops in
 				search routines */
 			if (!elem.size()) {
@@ -102,11 +101,16 @@ static Variant HHVM_FUNCTION(fss_prep_search, const Variant& needle) {
 		return false;
 	}
 
-	return NEWOBJ(FastStringSearchResource)(res);
+	FastStringSearchResource * ret_res = HPHP::req::make_raw<FastStringSearchResource>(res);
+	const req::ptr<FastStringSearchResource> ret_ptr(ret_res);
+	HPHP::Variant r (ret_ptr);
+	    
+	return r;
 }
 
 static Variant HHVM_FUNCTION(fss_exec_search, const Resource& r, const String& haystack, int64_t offset ) {
-	auto fss_r = r.getTyped<FastStringSearchResource>();
+  FastStringSearchResource * fss_r = (FastStringSearchResource * )r.hdr();
+    //r.getTyped<>();
 	if (!fss_r) {
 		return false;
 	}
@@ -139,7 +143,7 @@ static Resource HHVM_FUNCTION(fss_prep_replace, const Array& pairs ) {
 
 	/* fss_resource_t has an open-ended array, we allocate enough memory for the
 	   header plus all the array elements, plus one extra element for good measure */
-	res = (fss_resource_t*)smart_malloc(sizeof(Variant*) * pairs.size() + sizeof(fss_resource_t));
+	res = (fss_resource_t*)req::malloc(sizeof(Variant*) * pairs.size() + sizeof(fss_resource_t));
 	if (!res) {
 		throw Exception("Out of memory");
 	}
@@ -180,7 +184,7 @@ static Resource HHVM_FUNCTION(fss_prep_replace, const Array& pairs ) {
 		}
 
 		/* Add the value to the replace array */
-		res->replace[i++] = smart_new<Variant>(iter.second());
+		res->replace[i++] = HPHP::req::make_raw<Variant>(iter.second());
 	}
 	for (; i < res->replace_size; i++) {
 		res->replace[i] = NULL;
@@ -190,11 +194,15 @@ static Resource HHVM_FUNCTION(fss_prep_replace, const Array& pairs ) {
 		throw Exception("kwsprep: %s", error);
 	}
 
-	return NEWOBJ(FastStringSearchResource)(res);
+	FastStringSearchResource * ret_res = HPHP::req::make_raw<FastStringSearchResource>(res);
+	const req::ptr<FastStringSearchResource> ret_ptr(ret_res);
+	HPHP::Resource r (ret_ptr);
+	return r;
 }
 
 static Variant HHVM_FUNCTION(fss_exec_replace, const Resource& r, const String& subject) {
-	auto fss_r = r.getTyped<FastStringSearchResource>();
+  //auto fss_r = r.getTyped<FastStringSearchResource>();
+    FastStringSearchResource * fss_r = (FastStringSearchResource * )r.hdr();
 	if (!fss_r) {
 		return false;
 	}

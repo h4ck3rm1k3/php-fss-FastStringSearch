@@ -33,7 +33,8 @@
 #endif
 #include <sys/types.h>
 #include <limits.h>
-#include "hphp/runtime/base/base-includes.h"
+//#include "hphp/runtime/base/base-includes.h"
+#include "hphp/runtime/ext/extension.h"
 #include "kwset.h"
 #include "obstack.h"
 
